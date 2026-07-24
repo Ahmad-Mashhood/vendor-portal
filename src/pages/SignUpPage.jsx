@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import API from '../api';
 
 export default function SignUpPage() {
     const navigate = useNavigate();
@@ -19,49 +20,39 @@ export default function SignUpPage() {
 
     const [signupError, setSignupError] = useState('');
 
-    const handleSignUp = (e) => {
+    const handleSignUp = async (e) => {
         e.preventDefault();
         setSignupError('');
 
-        // Validate agreed checkbox
         if (!agreed) {
             setSignupError('Please agree to the Partner Terms & Conditions to continue.');
             return;
         }
 
-        // Check for duplicate email BEFORE showing loading spinner
-        const existingUsers = JSON.parse(localStorage.getItem('vendor_users') || '[]');
-        const alreadyExists = existingUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-        if (alreadyExists) {
-            setSignupError('An account with this email already exists. Please sign in instead.');
-            return;
-        }
-
-        // All good — show loading and save
         setIsLoading(true);
-        setTimeout(() => {
-            try {
-                const newUser = {
-                    restaurantName,
-                    ownerName,
-                    email: email.toLowerCase(),
-                    phone,
-                    cuisine,
-                    city,
-                    password
-                };
-                existingUsers.push(newUser);
-                localStorage.setItem('vendor_users', JSON.stringify(existingUsers));
-                setIsLoading(false);
-                setSuccessMessage('Registration submitted! Redirecting to login...');
-                setTimeout(() => {
-                    navigate('/login');
-                }, 2500);
-            } catch (err) {
-                setIsLoading(false);
-                setSignupError('Something went wrong. Please try again.');
-            }
-        }, 1200);
+        try {
+            const response = await API.post('/api/vendors/register', {
+                name: restaurantName,
+                email: email.toLowerCase(),
+                password,
+                city: city || 'Vehari',
+                phone,
+                category: 'restaurant'
+            });
+
+            const { token, vendor } = response.data;
+            if (token) localStorage.setItem('token', token);
+            if (vendor) localStorage.setItem('user', JSON.stringify(vendor));
+
+            setIsLoading(false);
+            setSuccessMessage('Registration submitted! Redirecting to login...');
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
+        } catch (err) {
+            setIsLoading(false);
+            setSignupError(err.response?.data?.detail || 'Registration failed. Please try again.');
+        }
     };
 
     return (

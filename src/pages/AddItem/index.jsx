@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import { addMenuItem } from '../../data/restaurantStorage';
+import API from '../../api';
 
 const AVAILABLE_TAGS = ['Spicy', 'Vegan', 'Vegetarian', 'Gluten Free', 'New', 'Best Seller', 'Halal'];
 
@@ -45,14 +46,25 @@ const AddItem = () => {
     return errs;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
     setSaving(true);
-    setTimeout(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      await API.post('/api/foods', {
+        name: name.trim(),
+        price: parseFloat(price),
+        category: category,
+        description: description.trim(),
+        calories: 450,
+        is_available: inStock,
+        vendor_id: user.id || 1
+      });
+
       addMenuItem({
         name: name.trim(),
         description: description.trim(),
@@ -65,7 +77,10 @@ const AddItem = () => {
       });
       setSaving(false);
       navigate('/menu-management');
-    }, 600);
+    } catch (err) {
+      setSaving(false);
+      alert('Failed to save item: ' + (err.response?.data?.detail || err.message));
+    }
   };
 
   return (

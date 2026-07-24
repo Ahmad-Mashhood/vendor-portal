@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import API from '../api';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -29,43 +30,28 @@ export default function LoginPage() {
 
     const [loginError, setLoginError] = useState('');
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setLoginError('');
         setIsLoading(true);
 
-        setTimeout(() => {
+        try {
+            const response = await API.post('/api/auth/login', { email, password });
+            const { token, vendor, user } = response.data;
+            const vendorData = vendor || user || {};
+
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(vendorData));
+            localStorage.setItem('vendor_logged_in', 'true');
+            localStorage.setItem('vendor_restaurant_name', vendorData.name || 'Vendor');
+            localStorage.setItem('vendor_email', vendorData.email || email);
+
             setIsLoading(false);
-
-            // Check against registered vendor_users in localStorage
-            const users = JSON.parse(localStorage.getItem('vendor_users') || '[]');
-            const matched = users.find(u => u.email === email && u.password === password);
-
-            if (matched) {
-                // Log in as the registered restaurant
-                localStorage.setItem('vendor_logged_in', 'true');
-                localStorage.setItem('vendor_restaurant_name', matched.restaurantName);
-                localStorage.setItem('vendor_owner_name', matched.ownerName);
-                localStorage.setItem('vendor_email', matched.email);
-                localStorage.setItem('vendor_phone', matched.phone);
-                localStorage.setItem('vendor_city', matched.city);
-                localStorage.setItem('vendor_cuisine', matched.cuisine);
-                navigate('/dashboard');
-            } else {
-                // Fallback: if no registered users exist, allow any login as default
-                const allUsers = JSON.parse(localStorage.getItem('vendor_users') || '[]');
-                if (allUsers.length === 0) {
-                    // No registrations yet – allow demo login
-                    localStorage.setItem('vendor_logged_in', 'true');
-                    localStorage.setItem('vendor_restaurant_name', 'Karachi Hotel');
-                    localStorage.setItem('vendor_owner_name', 'Jane Doe');
-                    localStorage.setItem('vendor_email', email);
-                    navigate('/dashboard');
-                } else {
-                    setLoginError('Incorrect email or password. Please try again.');
-                }
-            }
-        }, 1000);
+            navigate('/dashboard');
+        } catch (err) {
+            setIsLoading(false);
+            setLoginError(err.response?.data?.detail || 'Incorrect email or password. Please try again.');
+        }
     };
 
     const handleGoogleLogin = () => {

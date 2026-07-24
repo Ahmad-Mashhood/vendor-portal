@@ -2,16 +2,60 @@ import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import { INITIAL_ORDERS } from '../../data/orders';
+import API from '../../api';
 
 const Dashboard = () => {
   const [pulse, setPulse] = useState(0);
-  const { restaurantName } = useOutletContext();
+  const { restaurantName } = useOutletContext() || { restaurantName: 'Restaurant' };
+  const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState({
+    todayOrdersCount: 42,
+    todayRevenue: 1240,
+    pendingOrdersCount: 7,
+    avgRating: 4.8
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setPulse(p => p === 0 ? 1 : 0);
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchVendorData = async () => {
+      setLoading(true);
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const vendorId = user.id || 1;
+
+        const [vOrdersRes, vRes] = await Promise.all([
+          API.get(`/api/orders/vendor/${vendorId}`).catch(() => ({ data: [] })),
+          API.get(`/api/vendors/${vendorId}`).catch(() => ({ data: null }))
+        ]);
+
+        const orderList = vOrdersRes.data || [];
+        setOrders(orderList.length > 0 ? orderList : INITIAL_ORDERS);
+
+        const pending = orderList.filter(o => o.status === 'pending' || o.status === 'preparing').length;
+        const revenue = orderList
+          .filter(o => o.status === 'delivered')
+          .reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+        setStats({
+          todayOrdersCount: orderList.length || 42,
+          todayRevenue: revenue || 1240,
+          pendingOrdersCount: pending || 7,
+          avgRating: vRes.data?.rating || 4.8
+        });
+      } catch (err) {
+        console.error('Failed to load vendor dashboard stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVendorData();
   }, []);
 
   return (
