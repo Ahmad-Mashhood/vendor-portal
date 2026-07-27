@@ -3,20 +3,48 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
+import API from '../../api';
 
 const Profile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
-  // Read current logged-in restaurant data from localStorage
-  const [profileData, setProfileData] = useState(() => ({
-    restaurantName: localStorage.getItem('vendor_restaurant_name') || 'Golden Grill Bistro',
-    ownerName: localStorage.getItem('vendor_owner_name') || 'Jane Doe',
-    email: localStorage.getItem('vendor_email') || 'manager@goldengrill.com',
-    phone: localStorage.getItem('vendor_phone') || '+1 (555) 123-4567',
-    city: localStorage.getItem('vendor_city') || 'New York',
-    cuisine: localStorage.getItem('vendor_cuisine') || 'Continental',
-  }));
+  // Read current logged-in restaurant data dynamically
+  const [profileData, setProfileData] = useState(() => {
+    let savedUser = null;
+    try {
+      savedUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('vendor') || '{}');
+    } catch (e) {}
+    return {
+      restaurantName: savedUser?.name || localStorage.getItem('vendor_restaurant_name') || 'Food Genie Partner Restaurant',
+      ownerName: savedUser?.owner_name || savedUser?.name || localStorage.getItem('vendor_owner_name') || 'Partner Owner',
+      email: savedUser?.email || localStorage.getItem('vendor_email') || 'partner@foodgenie.com',
+      phone: savedUser?.phone || localStorage.getItem('vendor_phone') || '+92 300 1234567',
+      city: savedUser?.city || localStorage.getItem('vendor_city') || 'Vehari',
+      cuisine: savedUser?.category || localStorage.getItem('vendor_cuisine') || 'Pakistani & Fast Food',
+    };
+  });
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const res = await API.get('/api/auth/me');
+        if (res.data) {
+          const fresh = res.data;
+          setProfileData(prev => ({
+            ...prev,
+            restaurantName: fresh.name || prev.restaurantName,
+            ownerName: fresh.owner_name || fresh.name || prev.ownerName,
+            email: fresh.email || prev.email,
+            phone: fresh.phone || prev.phone,
+            city: fresh.city || prev.city,
+            cuisine: fresh.category || prev.cuisine
+          }));
+        }
+      } catch (err) {}
+    };
+    fetchMe();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
