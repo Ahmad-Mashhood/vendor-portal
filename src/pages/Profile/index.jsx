@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
+import { auth } from '../../firebase';
+import { signOut } from 'firebase/auth';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -154,11 +156,16 @@ const Profile = () => {
           
           <div className="pt-6 border-t border-outline-variant/20 dark:border-outline/20 mt-6">
             <button 
-              onClick={() => {
+              onClick={async () => {
+                try {
+                  await signOut(auth);
+                } catch (e) {}
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 localStorage.removeItem('vendor_logged_in');
-                navigate('/login');
+                window.location.href = '/login';
               }}
-              className="flex items-center justify-center gap-2 w-full md:w-auto px-6 py-3 rounded-full font-label-lg bg-error-container text-on-error-container hover:bg-error hover:text-on-error transition-all shadow-sm active:scale-95"
+              className="flex items-center justify-center gap-2 w-full md:w-auto px-6 py-3 rounded-full font-label-lg bg-error-container text-on-error-container hover:bg-error hover:text-on-error transition-all shadow-sm active:scale-95 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
               Logout

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../api';
+import { loginWithGoogle } from '../api/googleAuth';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -54,24 +55,17 @@ export default function LoginPage() {
         }
     };
 
-    const handleGoogleLogin = () => {
+    const handleGoogleLogin = async () => {
         setGoogleLoading(true);
-        const width = 480;
-        const height = 580;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        const popup = window.open(
-            '/auth/google',
-            'google_auth',
-            `width=${width},height=${height},left=${left},top=${top},resizable=no,scrollbars=no`
-        );
-        // If popup was blocked or closed without auth, reset loading
-        const pollClosed = setInterval(() => {
-            if (popup && popup.closed) {
-                clearInterval(pollClosed);
-                setGoogleLoading(false);
-            }
-        }, 500);
+        setLoginError('');
+        try {
+            await loginWithGoogle('vendor');
+            setGoogleLoading(false);
+            navigate('/dashboard');
+        } catch (err) {
+            setGoogleLoading(false);
+            setLoginError(err.message || 'Google login failed');
+        }
     };
 
     return (

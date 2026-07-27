@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../api';
+import { loginWithGoogle } from '../api/googleAuth';
 
 export default function SignUpPage() {
     const navigate = useNavigate();
@@ -55,6 +56,19 @@ export default function SignUpPage() {
         }
     };
 
+    const handleGoogleLogin = async () => {
+        setIsLoading(true);
+        setSignupError('');
+        try {
+            await loginWithGoogle('vendor');
+            setIsLoading(false);
+            navigate('/dashboard');
+        } catch (err) {
+            setIsLoading(false);
+            setSignupError(err.message || 'Google login failed');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#FFF8F0] flex flex-col md:flex-row text-[#2B2D42] font-body-md">
             {/* Left Banner Side */}
@@ -86,15 +100,15 @@ export default function SignUpPage() {
             </div>
 
             {/* Right Form Side */}
-            <div className="md:w-1/2 flex items-center justify-center p-lg md:p-xl bg-[#FFF8F0] overflow-y-auto py-xl">
-                <div className="w-full max-w-lg bg-white p-xl rounded-2xl shadow-xl border border-[#2B2D42]/5 transition-all">
+            <div className="md:w-1/2 flex items-center justify-center p-lg md:p-xl bg-[#FFF8F0]">
+                <div className="w-full max-w-md bg-white p-xl rounded-2xl shadow-xl border border-[#2B2D42]/5">
                     {successMessage ? (
                         <div className="text-center py-xl space-y-md">
-                            <span className="material-symbols-outlined text-emerald-500 text-6xl animate-bounce">check_circle</span>
-                            <h2 className="font-headline-sm text-headline-sm text-[#2B2D42]">Application Submitted!</h2>
-                            <p className="font-body-md text-body-md text-[#2B2D42]/70 max-w-xs mx-auto">
-                                {successMessage}
-                            </p>
+                            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                                <span className="material-symbols-outlined text-4xl">check_circle</span>
+                            </div>
+                            <h3 className="font-headline-md text-headline-md text-[#2B2D42]">Application Submitted!</h3>
+                            <p className="font-body-sm text-body-sm text-[#2B2D42]/70 max-w-xs mx-auto">{successMessage}</p>
                         </div>
                     ) : (
                         <>
@@ -240,6 +254,43 @@ export default function SignUpPage() {
                                             Submit Application
                                         </>
                                     )}
+                                </button>
+
+                                {/* Divider */}
+                                <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', gap: '10px' }}>
+                                    <hr style={{ flex: 1, borderColor: '#eee' }} />
+                                    <span style={{ color: '#888', fontSize: '12px' }}>OR</span>
+                                    <hr style={{ flex: 1, borderColor: '#eee' }} />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleGoogleLogin}
+                                    disabled={isLoading}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        backgroundColor: '#ffffff',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '12px',
+                                        cursor: 'pointer',
+                                        fontSize: '15px',
+                                        fontWeight: '500',
+                                        color: '#333',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                    }}
+                                >
+                                    <img
+                                        src="https://developers.google.com/identity/images/g-logo.png"
+                                        width="22"
+                                        height="22"
+                                        alt="Google"
+                                    />
+                                    {isLoading ? 'Connecting...' : 'Continue with Google'}
                                 </button>
                             </form>
 
