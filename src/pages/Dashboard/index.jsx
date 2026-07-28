@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import Header from '../../components/Header/Header';
-import { INITIAL_ORDERS } from '../../data/orders';
 import API from '../../api';
 
 const Dashboard = () => {
   const [pulse, setPulse] = useState(0);
   const { restaurantName } = useOutletContext() || { restaurantName: 'Restaurant' };
   const [orders, setOrders] = useState([]);
+  const [vendorProfile, setVendorProfile] = useState(null);
   const [stats, setStats] = useState({
-    todayOrdersCount: 42,
-    todayRevenue: 1240,
-    pendingOrdersCount: 7,
-    avgRating: 4.8
+    todayOrdersCount: 0,
+    todayRevenue: 0,
+    pendingOrdersCount: 0,
+    avgRating: 5.0
   });
   const [loading, setLoading] = useState(false);
 
@@ -28,15 +28,18 @@ const Dashboard = () => {
       setLoading(true);
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const vendorId = user.id || 1;
+        const vendorId = user.id;
 
-        const [vOrdersRes, vRes] = await Promise.all([
-          API.get(`/api/orders/vendor/${vendorId}`).catch(() => ({ data: [] })),
-          API.get(`/api/vendors/${vendorId}`).catch(() => ({ data: null }))
+        const [vOrdersRes, meRes] = await Promise.all([
+          vendorId ? API.get(`/api/orders/vendor/${vendorId}`).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+          API.get('/api/auth/me').catch(() => ({ data: null }))
         ]);
 
+        const me = meRes.data || user;
+        setVendorProfile(me);
+
         const orderList = vOrdersRes.data || [];
-        setOrders(orderList.length > 0 ? orderList : INITIAL_ORDERS);
+        setOrders(orderList);
 
         const pending = orderList.filter(o => o.status === 'pending' || o.status === 'preparing').length;
         const revenue = orderList
@@ -44,13 +47,13 @@ const Dashboard = () => {
           .reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
         setStats({
-          todayOrdersCount: orderList.length || 42,
-          todayRevenue: revenue || 1240,
-          pendingOrdersCount: pending || 7,
-          avgRating: vRes.data?.rating || 4.8
+          todayOrdersCount: orderList.length,
+          todayRevenue: revenue,
+          pendingOrdersCount: pending,
+          avgRating: me?.rating || 5.0
         });
       } catch (err) {
-        console.error('Failed to load vendor dashboard stats', err);
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -58,161 +61,132 @@ const Dashboard = () => {
     fetchVendorData();
   }, []);
 
+  const isApproved = vendorProfile ? vendorProfile.is_approved !== false : true;
+
   return (
-    <div className="font-body-md text-on-surface antialiased pb-32">
-      <Header />      <main className="px-container-padding py-lg space-y-lg w-full max-w-[1920px] mx-auto">
-        {/* Welcome Header */}
-        <section className="mb-lg">
-          <div className="space-y-1">
-            <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Welcome, {restaurantName}</h1>
-            <p className="text-body-md text-on-surface-variant">Here's what's happening with your restaurant today.</p>
+    <div className="min-h-screen pb-32">
+      <Header />
+
+      <main className="w-full max-w-[1920px] mx-auto px-container-padding pt-lg space-y-xl">
+        {/* Pending Approval Banner if not approved yet */}
+        {!isApproved && (
+          <div className="bg-[#FFB703]/15 border border-[#FFB703] p-6 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#FFB703] text-black font-bold flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
+                ⏳
+              </div>
+              <div>
+                <h3 className="font-bold text-[#261814] text-lg">Application Pending Admin Approval</h3>
+                <p className="text-sm text-[#594139] mt-0.5 max-w-2xl leading-relaxed">
+                  Your restaurant registration has been submitted to Food Genie Admin for review. Once approved, your restaurant will automatically appear on the Customer Portal so you can receive orders!
+                </p>
+              </div>
+            </div>
+            <span className="bg-[#FFB703] text-black font-bold text-xs px-3 py-1.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+              Pending Review
+            </span>
           </div>
-        </section>
-        
-        {/* Stats Grid */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-card-gap">
-          <div className="glass-card p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col gap-xs transition-transform active:scale-95 duration-150 cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg" data-icon="dashboard">dashboard</span>
-              <span className="text-label-sm text-on-surface-variant">+12%</span>
+        )}
+
+        {/* Top Metric Cards */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
+          {/* Active Orders Count */}
+          <div className="bg-surface p-lg rounded-2xl border border-outline-variant/15 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-sm">
+              <span className="font-label-md text-on-surface-variant/70 uppercase tracking-wider text-xs">Today's Orders</span>
+              <div className="w-9 h-9 rounded-xl bg-[#FF6B35]/10 text-[#FF6B35] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+              </div>
             </div>
-            <div>
-              <p className="text-label-sm text-on-surface-variant font-medium">Today's Orders</p>
-              <p className="font-headline-md text-headline-md text-on-surface">42</p>
-            </div>
-          </div>
-          
-          <div className="glass-card p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col gap-xs transition-transform active:scale-95 duration-150 cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="material-symbols-outlined text-tertiary bg-tertiary-fixed p-2 rounded-lg" data-icon="payments">payments</span>
-              <span className="text-label-sm text-on-surface-variant">+8%</span>
-            </div>
-            <div>
-              <p className="text-label-sm text-on-surface-variant font-medium">Today's Revenue</p>
-              <p className="font-headline-md text-headline-md text-on-surface">$1,240</p>
-            </div>
-          </div>
-          
-          <div className="glass-card p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col gap-xs transition-transform active:scale-95 duration-150 cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="material-symbols-outlined text-secondary bg-secondary-fixed p-2 rounded-lg" data-icon="receipt_long">receipt_long</span>
-              <span className="flex h-2 w-2 rounded-full bg-secondary animate-pulse" style={{ opacity: pulse }}></span>
-            </div>
-            <div>
-              <p className="text-label-sm text-on-surface-variant font-medium">Pending Orders</p>
-              <p className="font-headline-md text-headline-md text-on-surface">07</p>
+            <div className="flex items-baseline justify-between">
+              <span className="font-display-lg text-3xl font-extrabold text-on-surface">{stats.todayOrdersCount}</span>
+              <span className="text-xs text-on-surface-variant font-medium">0 new</span>
             </div>
           </div>
-          
-          <div className="glass-card p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col gap-xs transition-transform active:scale-95 duration-150 cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-              <span className="text-label-sm text-on-surface-variant">New</span>
+
+          {/* Pending Orders */}
+          <div className="bg-surface p-lg rounded-2xl border border-outline-variant/15 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-sm">
+              <span className="font-label-md text-on-surface-variant/70 uppercase tracking-wider text-xs">Pending Orders</span>
+              <div className="w-9 h-9 rounded-xl bg-[#FFB703]/15 text-[#ab7500] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">pending</span>
+              </div>
             </div>
-            <div>
-              <p className="text-label-sm text-on-surface-variant font-medium">Average Rating</p>
-              <p className="font-headline-md text-headline-md text-on-surface">4.8/5</p>
+            <div className="flex items-baseline justify-between">
+              <span className="font-display-lg text-3xl font-extrabold text-on-surface">{stats.pendingOrdersCount}</span>
+              <span className="text-xs text-amber-600 font-bold">Needs Prep</span>
+            </div>
+          </div>
+
+          {/* Revenue */}
+          <div className="bg-surface p-lg rounded-2xl border border-outline-variant/15 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-sm">
+              <span className="font-label-md text-on-surface-variant/70 uppercase tracking-wider text-xs">Today's Revenue</span>
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">payments</span>
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="font-display-lg text-3xl font-extrabold text-on-surface">Rs. {stats.todayRevenue}</span>
+              <span className="text-xs text-emerald-600 font-semibold">Live</span>
+            </div>
+          </div>
+
+          {/* Rating */}
+          <div className="bg-surface p-lg rounded-2xl border border-outline-variant/15 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-sm">
+              <span className="font-label-md text-on-surface-variant/70 uppercase tracking-wider text-xs">Store Rating</span>
+              <div className="w-9 h-9 rounded-xl bg-[#c98f00]/10 text-[#c98f00] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">star</span>
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="font-display-lg text-3xl font-extrabold text-on-surface">{stats.avgRating}</span>
+              <span className="text-xs text-[#c98f00] font-bold">★ 5.0 Scale</span>
             </div>
           </div>
         </section>
 
-        {/* Main Dashboard Content */}
-        <section className="space-y-md">
-          <div className="flex items-center justify-between">
-            <h2 className="font-headline-md text-headline-md text-on-surface">Recent Orders</h2>
-            <Link to="/order-management" className="text-primary font-label-lg hover:underline flex items-center gap-1">
-              View All <span className="material-symbols-outlined text-[16px]" data-icon="arrow_forward">arrow_forward</span>
+        {/* Live Orders Section */}
+        <section className="bg-surface rounded-2xl border border-outline-variant/15 shadow-sm p-lg">
+          <div className="flex items-center justify-between mb-lg">
+            <div>
+              <h2 className="font-headline-md text-[#261814] font-bold text-xl">Recent Orders</h2>
+              <p className="text-xs text-on-surface-variant">Incoming order management</p>
+            </div>
+            <Link to="/order-management" className="text-xs font-bold text-[#FF6B35] hover:underline flex items-center gap-1">
+              View All Orders <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
-          
-          <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/20 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-surface-container-low border-b border-outline-variant/20">
-                  <tr>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant">Order ID</th>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant">Customer</th>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant">Items</th>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant">Total</th>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant">Status</th>
-                    <th className="px-md py-sm font-label-lg text-on-surface-variant text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/10">
-                  {INITIAL_ORDERS.slice(0, 3).map(order => (
-                    <tr key={order.id} className="hover:bg-surface-container-lowest/50 transition-colors">
-                      <td className="px-md py-md font-label-lg text-primary">{order.id}</td>
-                      <td className="px-md py-md">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-primary font-bold text-xs">
-                            {order.customer.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <span className="text-body-md font-medium">{order.customer}</span>
-                        </div>
-                      </td>
-                      <td className="px-md py-md text-body-md text-on-surface-variant">
-                        {order.items.map(item => item.name).join(', ')}
-                      </td>
-                      <td className="px-md py-md text-body-md font-bold text-on-surface">{order.total || '$0.00'}</td>
-                      <td className="px-md py-md">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wider ${
-                          order.status === 'Incoming' ? 'bg-error-container/10 text-error' :
-                          order.status === 'Preparing' ? 'bg-primary-container/10 text-primary' :
-                          order.status === 'Ready' ? 'bg-tertiary-container/10 text-tertiary' :
-                          'bg-outline-variant/20 text-on-surface-variant'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-md py-md text-right">
-                        <Link to="/order-management" className="text-tertiary hover:bg-tertiary-container/10 px-3 py-1 rounded-full text-label-sm font-bold transition-all active:scale-95">View</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
 
-        {/* Quick Actions & Insights Section */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
-          <div className="glass-card p-md rounded-xl border border-outline-variant/30 space-y-md">
-            <h3 className="font-headline-md text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary" data-icon="analytics">analytics</span> Performance Insights
-            </h3>
-            <div className="h-32 bg-surface-container-low rounded-lg flex items-end justify-between p-4 gap-2">
-              <div className="w-full bg-primary-container/20 rounded-t-sm h-[40%] transition-all hover:h-[50%] hover:bg-primary-container/40"></div>
-              <div className="w-full bg-primary-container/20 rounded-t-sm h-[60%] transition-all hover:h-[70%] hover:bg-primary-container/40"></div>
-              <div className="w-full bg-primary-container/20 rounded-t-sm h-[85%] transition-all hover:h-[95%] hover:bg-primary-container/40"></div>
-              <div className="w-full bg-primary-container/20 rounded-t-sm h-[55%] transition-all hover:h-[65%] hover:bg-primary-container/40"></div>
-              <div className="w-full bg-primary-container rounded-t-sm h-[90%] transition-all hover:h-[100%]"></div>
+          {loading ? (
+            <div className="py-12 text-center text-gray-500">
+              <div className="w-6 h-6 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Loading orders...</p>
             </div>
-            <p className="text-label-sm text-on-surface-variant italic">Peak hours detected between 12:00 PM - 2:00 PM today.</p>
-          </div>
-          <div className="glass-card p-md rounded-xl border border-outline-variant/30 space-y-md">
-            <h3 className="font-headline-md text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary" data-icon="bolt">bolt</span> Quick Actions
-            </h3>
-            <div className="grid grid-cols-2 gap-sm">
-              <Link to="/add-item" className="flex flex-col items-center justify-center gap-2 p-md bg-primary text-on-primary rounded-xl hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-all active:scale-95">
-                <span className="material-symbols-outlined" data-icon="add_circle">add_circle</span>
-                <span className="text-label-sm font-bold">New Menu Item</span>
-              </Link>
-              <Link to="/promotion" className="flex flex-col items-center justify-center gap-2 p-md bg-surface-container-high text-primary rounded-xl hover:bg-primary/10 transition-all active:scale-95">
-                <span className="material-symbols-outlined" data-icon="campaign">campaign</span>
-                <span className="text-label-sm font-bold">Post Promotion</span>
-              </Link>
-              <Link to="/earnings" className="flex flex-col items-center justify-center gap-2 p-md bg-surface-container-high text-primary rounded-xl hover:bg-primary/10 transition-all active:scale-95">
-                <span className="material-symbols-outlined" data-icon="history">history</span>
-                <span className="text-label-sm font-bold">Daily Report</span>
-              </Link>
-              <Link to="/settings" className="flex flex-col items-center justify-center gap-2 p-md bg-surface-container-high text-primary rounded-xl hover:bg-primary/10 transition-all active:scale-95">
-                <span className="material-symbols-outlined" data-icon="settings">settings</span>
-                <span className="text-label-sm font-bold">Settings</span>
-              </Link>
+          ) : orders.length > 0 ? (
+            <div className="space-y-3">
+              {orders.map(order => (
+                <div key={order.id} className="p-4 bg-surface-container-low rounded-xl border border-outline-variant/10 flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-bold text-sm text-on-surface">Order #{order.id}</h4>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Rs. {order.total_amount || 0}</p>
+                  </div>
+                  <span className="px-3 py-1 bg-[#FF6B35]/15 text-[#FF6B35] font-bold text-xs rounded-full uppercase">
+                    {order.status || 'Pending'}
+                  </span>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <div className="py-12 text-center space-y-2">
+              <span className="material-symbols-outlined text-4xl text-gray-300">inbox</span>
+              <p className="text-sm font-bold text-on-surface">No incoming orders yet</p>
+              <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+                Once customers place orders on Food Genie, incoming orders will appear here in real-time.
+              </p>
+            </div>
+          )}
         </section>
       </main>
     </div>
