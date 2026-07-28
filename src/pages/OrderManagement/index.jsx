@@ -1,13 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '../../components/Header/Header';
-
-import { INITIAL_ORDERS } from '../../data/orders';
+import API from '../../api';
 
 const OrderManagement = () => {
   const [activeTab, setActiveTab] = useState('Incoming');
   const [openDropdown, setOpenDropdown] = useState(null);
   const [expandedOrders, setExpandedOrders] = useState([]);
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVendorOrders = async () => {
+      setLoading(true);
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.id) {
+          const res = await API.get(`/api/orders/vendor/${user.id}`);
+          setOrders(res.data || []);
+        } else {
+          setOrders([]);
+        }
+      } catch (err) {
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVendorOrders();
+  }, []);
 
   const tabs = ['Incoming', 'Preparing', 'Ready', 'Completed'];
 
