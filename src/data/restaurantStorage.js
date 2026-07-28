@@ -1,6 +1,3 @@
-import { MENU_ITEMS } from './menuItems';
-import { INITIAL_ORDERS } from './orders';
-
 // Returns a unique key prefix for the currently logged-in restaurant
 export const getRestaurantKey = () => {
     const email = localStorage.getItem('vendor_email') || 'default';
@@ -11,22 +8,12 @@ export const getRestaurantKey = () => {
 
 const MENU_KEY = () => `${getRestaurantKey()}_menu`;
 
-/**
- * Returns the menu for the current restaurant.
- * - Default/demo restaurant → returns the shared MENU_ITEMS seed data.
- * - Newly registered restaurant → returns [] (empty menu).
- */
 export const getMenu = () => {
     const raw = localStorage.getItem(MENU_KEY());
     if (raw !== null) {
         return JSON.parse(raw);
     }
-    // First access: seed with defaults for demo account, empty for new accounts
-    const isDemo = (localStorage.getItem('vendor_users') || '[]') === '[]'
-        || localStorage.getItem('vendor_restaurant_name') === 'Karachi Hotel';
-    const seed = isDemo ? MENU_ITEMS : [];
-    localStorage.setItem(MENU_KEY(), JSON.stringify(seed));
-    return seed;
+    return [];
 };
 
 export const saveMenu = (items) => {
@@ -63,12 +50,7 @@ export const getOrders = () => {
     if (raw !== null) {
         return JSON.parse(raw);
     }
-    // Demo account gets seed orders; new restaurants start empty
-    const isDemo = (localStorage.getItem('vendor_users') || '[]') === '[]'
-        || localStorage.getItem('vendor_restaurant_name') === 'Karachi Hotel';
-    const seed = isDemo ? INITIAL_ORDERS : [];
-    localStorage.setItem(ORDERS_KEY(), JSON.stringify(seed));
-    return seed;
+    return [];
 };
 
 export const saveOrders = (orders) => {
