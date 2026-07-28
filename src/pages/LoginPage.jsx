@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../api';
-import { loginWithGoogle } from '../api/googleAuth';
+import { loginWithGoogle, completeVendorOnboarding } from '../api/googleAuth';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -10,26 +10,15 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
-
-    // Listen for Google OAuth popup response
-    useEffect(() => {
-        const handleMessage = (event) => {
-            if (event.origin !== window.location.origin) return;
-            if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-                const { user } = event.data;
-                setGoogleLoading(false);
-                // Persist user to localStorage
-                localStorage.setItem('vendor_logged_in', 'true');
-                localStorage.setItem('vendor_name', user.name);
-                localStorage.setItem('vendor_email', user.email);
-                navigate('/dashboard');
-            }
-        };
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
-    }, [navigate]);
-
     const [loginError, setLoginError] = useState('');
+
+    // Vendor Google Onboarding State
+    const [onboardingData, setOnboardingData] = useState(null); // { firebaseToken, googleProfile }
+    const [phone, setPhone] = useState('');
+    const [city, setCity] = useState('Vehari');
+    const [category, setCategory] = useState('Fast Food');
+    const [newPassword, setNewPassword] = useState('');
+    const [onboardingError, setOnboardingError] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -59,17 +48,157 @@ export default function LoginPage() {
         setGoogleLoading(true);
         setLoginError('');
         try {
-            await loginWithGoogle('vendor');
+            const res = await loginWithGoogle('vendor');
             setGoogleLoading(false);
-            navigate('/dashboard');
+            if (res?.requires_details) {
+                setOnboardingData(res);
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
             setGoogleLoading(false);
             setLoginError(err.message || 'Google login failed');
         }
     };
 
+    const handleCompleteOnboarding = async (e) => {
+        e.preventDefault();
+        if (!phone.trim() || !newPassword.trim()) {
+            setOnboardingError('Please enter your phone number and set your account password.');
+            return;
+        }
+        setGoogleLoading(true);
+        setOnboardingError('');
+        try {
+            await completeVendorOnboarding(onboardingData.firebaseToken, {
+                phone: phone.trim(),
+                city: city.trim() || 'Vehari',
+                category: category || 'Fast Food',
+                password: newPassword.trim()
+            });
+            setGoogleLoading(false);
+            setOnboardingData(null);
+            navigate('/dashboard');
+        } catch (err) {
+            setGoogleLoading(false);
+            setOnboardingError(err.response?.data?.detail || err.message || 'Failed to complete registration.');
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-[#FFF8F0] flex flex-col md:flex-row text-[#2B2D42] font-body-md">
+        <div className="min-h-screen bg-[#FFF8F0] flex flex-col md:flex-row text-[#2B2D42] font-body-md relative">
+            {/* Onboarding Modal for New Google Vendors */}
+            {onboardingData && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl border border-[#FF6B35]/20 relative space-y-6">
+                        <div className="text-center space-y-2">
+                            <h2 className="text-2xl font-extrabold text-[#2B2D42]">Complete Restaurant Sign Up</h2>
+                            <p className="text-xs text-[#2B2D42]/60">Provide your restaurant details to finish setup</p>
+                        </div>
+
+                        {/* Google Profile Badge */}
+                        <div className="bg-[#FFF8F0] p-4 rounded-2xl border border-[#FF6B35]/20 flex items-center gap-4">
+                            {onboardingData.googleProfile?.photoURL ? (
+                                <img
+                                    src={onboardingData.googleProfile.photoURL}
+                                    alt="Google Profile"
+                                    className="w-14 h-14 rounded-full border-2 border-[#FF6B35] object-cover shadow-sm"
+                                />
+                            ) : (
+                                <div className="w-14 h-14 rounded-full bg-[#FF6B35] text-white font-bold flex items-center justify-center text-xl shadow-sm">
+                                    {onboardingData.googleProfile?.name?.charAt(0) || 'G'}
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-base text-[#2B2D42] truncate">{onboardingData.googleProfile?.name}</h4>
+                                <p className="text-xs text-[#2B2D42]/70 truncate">{onboardingData.googleProfile?.email}</p>
+                                <span className="text-[10px] font-extrabold text-[#FF6B35] uppercase tracking-wider">Verified by Google</span>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleCompleteOnboarding} className="space-y-4">
+                            {/* Phone */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-[#2B2D42]/70">Phone Number *</label>
+                                <input
+                                    type="text"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="+92 300 1234567"
+                                    required
+                                    className="w-full px-4 py-3 border border-[#2B2D42]/20 rounded-xl focus:ring-2 focus:ring-[#FF6B35] outline-none text-sm"
+                                />
+                            </div>
+
+                            {/* City */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-[#2B2D42]/70">City *</label>
+                                <input
+                                    type="text"
+                                    value={city}
+                                    onChange={(e) => setCity(e.target.value)}
+                                    placeholder="Vehari"
+                                    required
+                                    className="w-full px-4 py-3 border border-[#2B2D42]/20 rounded-xl focus:ring-2 focus:ring-[#FF6B35] outline-none text-sm"
+                                />
+                            </div>
+
+                            {/* Restaurant Type */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-[#2B2D42]/70">Restaurant Category / Type *</label>
+                                <select
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    className="w-full px-4 py-3 border border-[#2B2D42]/20 rounded-xl focus:ring-2 focus:ring-[#FF6B35] outline-none text-sm bg-white"
+                                >
+                                    <option value="Fast Food">Fast Food</option>
+                                    <option value="Pakistani & Desi">Pakistani & Desi</option>
+                                    <option value="Pizza & Burgers">Pizza & Burgers</option>
+                                    <option value="Cafe & Bakery">Cafe & Bakery</option>
+                                    <option value="Chinese & Asian">Chinese & Asian</option>
+                                    <option value="Sweets & Ice Cream">Sweets & Ice Cream</option>
+                                </select>
+                            </div>
+
+                            {/* Set Password */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-[#2B2D42]/70">Set Password (For manual login) *</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Min. 6 characters"
+                                    required
+                                    minLength={6}
+                                    className="w-full px-4 py-3 border border-[#2B2D42]/20 rounded-xl focus:ring-2 focus:ring-[#FF6B35] outline-none text-sm"
+                                />
+                            </div>
+
+                            {onboardingError && (
+                                <p className="text-xs font-semibold text-red-600 text-center bg-red-50 p-2 rounded-lg">{onboardingError}</p>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setOnboardingData(null)}
+                                    className="flex-1 py-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={googleLoading}
+                                    className="flex-1 py-3 bg-[#FF6B35] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#e05624] transition-all"
+                                >
+                                    {googleLoading ? 'Saving...' : 'Finish Sign Up'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Left Banner Side */}
             <div className="md:w-1/2 bg-[#1E1614] text-[#FFF8F0] p-xl flex flex-col justify-between relative overflow-hidden min-h-[300px] md:min-h-screen">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,#FF6B35,transparent_60%)] opacity-35"></div>
@@ -86,16 +215,12 @@ export default function LoginPage() {
                         with ease.
                     </h1>
                     <p className="font-body-lg text-lg text-[#FFF8F0]/80 max-w-md">
-                        Join thousands of restaurants, grow your delivery revenue, and track operations in real-time.
+                        Join local restaurants in Vehari, grow your delivery revenue, and track operations in real-time.
                     </p>
                 </div>
 
                 <div className="relative z-10 border-t border-white/10 pt-md flex items-center justify-between text-xs text-[#FFF8F0]/50">
                     <span>© 2026 Food Genie Partner Network</span>
-                    <div className="flex gap-sm">
-                        <Link to="#" className="hover:underline">Terms</Link>
-                        <Link to="#" className="hover:underline">Privacy</Link>
-                    </div>
                 </div>
             </div>
 
@@ -104,7 +229,7 @@ export default function LoginPage() {
                 <div className="w-full max-w-md bg-white p-xl rounded-2xl shadow-xl border border-[#2B2D42]/5">
                     <div className="mb-lg">
                         <h2 className="font-headline-lg text-headline-lg text-[#2B2D42] mb-xs">Welcome Back</h2>
-                        <p className="font-body-sm text-body-sm text-[#2B2D42]/60">Login to access your Karachi Hotel partner portal.</p>
+                        <p className="font-body-sm text-body-sm text-[#2B2D42]/60">Login to access your Food Genie restaurant partner portal.</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-md">
@@ -126,7 +251,6 @@ export default function LoginPage() {
                         <div className="flex flex-col gap-base">
                             <div className="flex justify-between items-center">
                                 <label className="font-label-sm text-label-sm text-[#2B2D42]/70">Password</label>
-                                <Link to="#" className="text-xs text-[#FF6B35] hover:underline font-semibold">Forgot Password?</Link>
                             </div>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#2B2D42]/40">lock</span>
@@ -147,11 +271,6 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-xs pt-xs">
-                            <input type="checkbox" id="remember" className="rounded text-[#FF6B35] focus:ring-[#FF6B35]" />
-                            <label htmlFor="remember" className="text-xs text-[#2B2D42]/60 select-none">Remember this device</label>
-                        </div>
-
                         {/* Error message */}
                         {loginError && (
                             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -165,7 +284,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={handleGoogleLogin}
                             disabled={googleLoading}
-                            className="w-full flex items-center justify-center gap-3 py-3 px-md bg-white border border-[#2B2D42]/15 rounded-lg hover:bg-gray-50 hover:border-[#2B2D42]/25 active:scale-95 transition-all shadow-sm font-medium text-[#2B2D42] font-body-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full flex items-center justify-center gap-3 py-3 px-md bg-white border border-[#2B2D42]/15 rounded-lg hover:bg-gray-50 hover:border-[#2B2D42]/25 active:scale-95 transition-all shadow-sm font-medium text-[#2B2D42] font-body-sm disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {googleLoading ? (
                                 <>
@@ -195,7 +314,7 @@ export default function LoginPage() {
                         <button 
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-[#FF6B35] text-white font-label-md text-label-md py-3 rounded-lg hover:opacity-90 active:scale-95 transition-all shadow-md shadow-[#FF6B35]/20 flex items-center justify-center gap-xs font-semibold disabled:opacity-70"
+                            className="w-full bg-[#FF6B35] text-white font-label-md text-label-md py-3 rounded-lg hover:opacity-90 active:scale-95 transition-all shadow-md shadow-[#FF6B35]/20 flex items-center justify-center gap-xs font-semibold disabled:opacity-70 cursor-pointer"
                         >
                             {isLoading ? (
                                 <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
