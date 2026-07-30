@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../api';
 import { loginWithGoogle, completeVendorOnboarding } from '../api/googleAuth';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [loginError, setLoginError] = useState('');
+    const [isForgotOpen, setIsForgotOpen] = useState(false);
 
     // Vendor Google Onboarding State
     const [onboardingData, setOnboardingData] = useState(null); // { firebaseToken, googleProfile }
@@ -251,6 +253,13 @@ export default function LoginPage() {
                         <div className="flex flex-col gap-base">
                             <div className="flex justify-between items-center">
                                 <label className="font-label-sm text-label-sm text-[#2B2D42]/70">Password</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotOpen(true)}
+                                    className="text-xs font-bold text-[#FF6B35] hover:underline cursor-pointer"
+                                >
+                                    Forgot Password?
+                                </button>
                             </div>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#2B2D42]/40">lock</span>
@@ -337,6 +346,12 @@ export default function LoginPage() {
                     </div>
                 </div>
             </div>
+
+            <ForgotPasswordModal
+                isOpen={isForgotOpen}
+                onClose={() => setIsForgotOpen(false)}
+            />
         </div>
     );
+
 }
