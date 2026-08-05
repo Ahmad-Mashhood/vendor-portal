@@ -14,6 +14,8 @@ import PayoutDetails from '../pages/PayoutDetails';
 import RestaurantLayout from '../layouts/RestaurantLayout';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
 import MockGoogleAuth from '../pages/MockGoogleAuth';
 
 const AppRoutes = () => {
@@ -21,7 +23,10 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/google" element={<MockGoogleAuth />} />
+
       <Route path="/" element={<RestaurantLayout />}>
         <Route index element={<Navigate to="/login" replace />} />
         <Route path="dashboard" element={<Dashboard />} />

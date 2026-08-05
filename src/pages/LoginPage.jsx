@@ -253,13 +253,13 @@ export default function LoginPage() {
                         <div className="flex flex-col gap-base">
                             <div className="flex justify-between items-center">
                                 <label className="font-label-sm text-label-sm text-[#2B2D42]/70">Password</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsForgotOpen(true)}
+                                <Link
+                                    to="/forgot-password"
                                     className="text-xs font-bold text-[#FF6B35] hover:underline cursor-pointer"
                                 >
                                     Forgot Password?
-                                </button>
+                                </Link>
+
                             </div>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#2B2D42]/40">lock</span>
